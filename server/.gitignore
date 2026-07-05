@@ -1,0 +1,11 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Local SQLite database
+*.db
+
+# Secrets — never commit the real .env (but do commit the example)
+.env
+!.env.example
