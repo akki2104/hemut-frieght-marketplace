@@ -71,3 +71,8 @@ class Load(UuidPkMixin, TimestampMixin, Base):
     bids: Mapped[list["Bid"]] = relationship(
         back_populates="load", lazy="selectin"
     )
+
+    @property
+    def num_stops(self) -> int:
+        """Derived, not stored (see plan trade-offs). Stops are eager-loaded."""
+        return len(self.stops)
