@@ -37,6 +37,7 @@ class BidStatus(str, enum.Enum):
     accepted = "accepted"
     rejected = "rejected"
     failed = "failed"
+    cancelled = "cancelled"  # withdrawn by the carrier, as opposed to rejected by the broker
 
 
 class RateType(str, enum.Enum):

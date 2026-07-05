@@ -7,10 +7,20 @@ model_validator (payload-only checks belong in Pydantic, CLAUDE.md §7.4).
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.enums import BidMethod, BidStatus, CallMode, LoadDirection, LoadStatus, RateType
+
+# The only transitions exposed to carriers via PATCH /bids/{id}/status — the
+# other BidStatus values (draft/sent/recorded/failed) are system-set, never
+# user-set.
+BidDecision = Literal["accepted", "rejected", "cancelled"]
+
+
+class UpdateBidStatusRequest(BaseModel):
+    status: BidDecision
 
 
 class PlaceBidRequest(BaseModel):
@@ -66,6 +76,7 @@ class BidResponse(BaseModel):
     target_amount: Decimal
     status: BidStatus
     rate_type: RateType | None
+    broker_email: str | None
     subject: str | None
     body: str | None
     call_mode: CallMode | None

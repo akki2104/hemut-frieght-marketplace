@@ -31,10 +31,13 @@ class Bid(UuidPkMixin, TimestampMixin, Base):
         Enum(BidStatus, name="bid_status"), default=BidStatus.draft, index=True
     )
 
-    # Email-only.
+    # Email-only. broker_email is the actual recipient used at send time —
+    # stored on the bid itself (not read from load.broker_email later) so the
+    # record stays accurate even if the load's contact info is edited after.
     rate_type: Mapped[RateType | None] = mapped_column(
         Enum(RateType, name="rate_type"), nullable=True
     )
+    broker_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     subject: Mapped[str | None] = mapped_column(String(255), nullable=True)
     body: Mapped[str | None] = mapped_column(Text, nullable=True)
 

@@ -9,14 +9,18 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.exceptions import InboundBidNotAllowedError, LoadNotFoundError
+from app.domain.exceptions import (
+    BidNotFoundError,
+    InboundBidNotAllowedError,
+    LoadNotFoundError,
+)
 from app.integrations.email_provider import EmailProvider
 from app.models.bid import Bid
 from app.models.enums import BidMethod, BidStatus, LoadDirection, LoadStatus
 from app.models.load import Load
 from app.repositories.bid_repository import BidRepository
 from app.repositories.load_repository import LoadRepository
-from app.schemas.bid import PlaceBidRequest
+from app.schemas.bid import BidDecision, PlaceBidRequest
 
 
 class BidService:
@@ -72,13 +76,26 @@ class BidService:
 
         return bid
 
+    async def update_status(self, bid_id: uuid.UUID, decision: BidDecision) -> Bid:
+        """Carrier-initiated decision: accept, reject, or cancel a placed bid."""
+        bid = await self._bid_repo.get(bid_id)
+        if bid is None:
+            raise BidNotFoundError(f"Bid {bid_id} was not found.")
+        bid.status = BidStatus(decision)
+        await self._session.commit()
+        return bid
+
     async def _place_email_bid(
         self, bid: Bid, payload: PlaceBidRequest, load: Load
     ) -> None:
+        to_email = payload.broker_email or load.broker_email
+        # Persisted on the bid itself, not re-derived from load.broker_email
+        # later, so "what email was sent" stays accurate even if the load's
+        # contact info is edited afterward.
+        bid.broker_email = to_email
         # Commit the bid first so a failed/slow send never rolls back the record.
         await self._session.commit()
 
-        to_email = payload.broker_email or load.broker_email
         result = await self._email.send(
             to=to_email, subject=payload.subject or "", body=payload.body or ""
         )

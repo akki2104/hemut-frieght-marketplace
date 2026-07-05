@@ -1,5 +1,7 @@
 """Data access for bids. Queries only — no business logic (CLAUDE.md §5.8)."""
 
+import uuid
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,6 +13,11 @@ from app.models.enums import BidMethod, BidStatus
 class BidRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def get(self, bid_id: uuid.UUID) -> Bid | None:
+        return await self._session.scalar(
+            select(Bid).where(Bid.id == bid_id).options(selectinload(Bid.load))
+        )
 
     async def list(
         self,

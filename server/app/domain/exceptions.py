@@ -30,6 +30,10 @@ class StopNotFoundError(NotFoundError):
     code = "STOP_NOT_FOUND"
 
 
+class BidNotFoundError(NotFoundError):
+    code = "BID_NOT_FOUND"
+
+
 class DuplicateOrderIdError(DomainError):
     code = "DUPLICATE_ORDER_ID"
     http_status = 409
