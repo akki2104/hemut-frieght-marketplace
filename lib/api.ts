@@ -6,11 +6,13 @@ import type {
   ApiErrorBody,
   Bid,
   BidDecision,
+  BidEmail,
   LoadCreateInput,
   LoadDetail,
   LoadSummary,
   Page,
   PlaceBidInput,
+  RateSuggestion,
 } from "./types";
 
 const BASE_URL =
@@ -77,6 +79,9 @@ export const api = {
 
   getLoad: (id: string) => request<LoadDetail>(`/loads/${id}`),
 
+  getRateSuggestion: (id: string) =>
+    request<RateSuggestion>(`/loads/${id}/rate-suggestion`),
+
   createLoad: (payload: LoadCreateInput) =>
     request<LoadDetail>("/loads", {
       method: "POST",
@@ -111,6 +116,18 @@ export const api = {
     request<Bid>(`/bids/${bidId}/status`, {
       method: "PATCH",
       body: JSON.stringify({ status }),
+    }),
+
+  listBidEmails: (bidId: string) =>
+    request<BidEmail[]>(`/bids/${bidId}/emails`),
+
+  sendBidEmail: (
+    bidId: string,
+    payload: { to_email?: string; subject: string; body: string }
+  ) =>
+    request<BidEmail>(`/bids/${bidId}/emails`, {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 
   signup: (email: string, password: string) =>

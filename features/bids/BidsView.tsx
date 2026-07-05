@@ -8,6 +8,7 @@ import { api, swrFetcher } from "@/lib/api";
 import { bidStatusMeta, dateTime, money } from "@/lib/format";
 import type { Bid, BidDecision, BidStatus, Page } from "@/lib/types";
 import { BidActionsMenu } from "./BidActionsMenu";
+import { acceptanceEmail, rejectionEmail } from "./emailTemplates";
 import { ViewEmailModal } from "./ViewEmailModal";
 
 const METHOD_LABEL: Record<string, string> = {
@@ -48,12 +49,25 @@ export function BidsView() {
   const { mutate } = useSWRConfig();
   const [bucket, setBucket] = useState<Bucket>("in_progress");
   const [emailBid, setEmailBid] = useState<Bid | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  async function handleDecision(bidId: string, decision: BidDecision) {
-    await api.updateBidStatus(bidId, decision);
-    await mutate(
-      (key) => typeof key === "string" && key.startsWith("/bids")
-    );
+  // Accept/reject also fire a real, hardcoded notice email to the broker —
+  // the same conversation the bid email or a manual follow-up would use.
+  async function handleDecision(bid: Bid, decision: BidDecision) {
+    setActionError(null);
+    try {
+      await api.updateBidStatus(bid.id, decision);
+      if (decision === "accepted" || decision === "rejected") {
+        const template = decision === "accepted" ? acceptanceEmail(bid) : rejectionEmail(bid);
+        await api.sendBidEmail(bid.id, template);
+      }
+    } catch (e) {
+      setActionError((e as { message?: string })?.message ?? "Action failed.");
+    } finally {
+      await mutate(
+        (key) => typeof key === "string" && key.startsWith("/bids")
+      );
+    }
   }
 
   const counts = useMemo(() => {
@@ -85,6 +99,12 @@ export function BidsView() {
 
   return (
     <div>
+      {actionError && (
+        <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
+          {actionError}
+        </div>
+      )}
+
       <div className="mb-3 inline-flex rounded-lg bg-zinc-100 p-1">
         {(["in_progress", "accepted", "rejected", "completed"] as Bucket[]).map((b) => (
           <button
@@ -164,18 +184,16 @@ export function BidsView() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        {bid.method === "email" && (
-                          <Button
-                            variant="secondary"
-                            className="px-2.5 py-1 text-xs"
-                            onClick={() => setEmailBid(bid)}
-                          >
-                            Email
-                          </Button>
-                        )}
+                        <Button
+                          variant="secondary"
+                          className="px-2.5 py-1 text-xs"
+                          onClick={() => setEmailBid(bid)}
+                        >
+                          Email
+                        </Button>
                         <BidActionsMenu
                           disabled={isCompleted}
-                          onSelect={(decision) => handleDecision(bid.id, decision)}
+                          onSelect={(decision) => handleDecision(bid, decision)}
                         />
                       </div>
                     </td>

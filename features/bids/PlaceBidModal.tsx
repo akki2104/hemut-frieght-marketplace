@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSWRConfig } from "swr";
+import useSWR, { useSWRConfig } from "swr";
 
 import { Button, Modal } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -29,6 +29,13 @@ export function PlaceBidModal({
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // AI-estimated historical rate for this lane (Groq) — null if no key is
+  // configured or the estimate call failed; the amount field works either way.
+  const { data: rateSuggestion, isLoading: suggestionLoading } = useSWR(
+    `/loads/${load.id}/rate-suggestion`,
+    () => api.getRateSuggestion(load.id)
+  );
 
   const amountNum = parseFloat(amount);
   const validAmount = !Number.isNaN(amountNum) && amountNum > 0;
@@ -131,6 +138,21 @@ export function PlaceBidModal({
           placeholder="Enter target bid amount…"
           className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:border-zinc-500 focus:outline-none"
         />
+        {suggestionLoading && (
+          <p className="mt-1.5 text-xs text-zinc-400">✨ Getting an AI rate suggestion…</p>
+        )}
+        {!suggestionLoading && rateSuggestion?.suggested_rate != null && (
+          <p className="mt-1.5 text-xs text-zinc-500">
+            ✨ AI suggestion:{" "}
+            <button
+              type="button"
+              onClick={() => setAmount(String(rateSuggestion.suggested_rate))}
+              className="font-medium text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800"
+            >
+              {money(rateSuggestion.suggested_rate)} — use this
+            </button>
+          </p>
+        )}
 
         {method === "email" && (
           <div className="mt-4 space-y-4">

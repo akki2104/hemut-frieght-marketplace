@@ -70,6 +70,10 @@ export interface LoadDetail extends LoadSummary {
   stops: Stop[];
 }
 
+export interface RateSuggestion {
+  suggested_rate: number | null;
+}
+
 export interface BidLoadRef {
   id: string;
   order_id: string;
@@ -80,6 +84,7 @@ export interface BidLoadRef {
   destination_city: string;
   destination_state: string;
   shipper_name: string;
+  broker_email: string;
 }
 
 export interface Bid {
@@ -95,6 +100,18 @@ export interface Bid {
   call_mode: CallMode | null;
   created_at: string;
   load: BidLoadRef | null;
+}
+
+export type EmailDeliveryStatus = "sent" | "recorded" | "failed";
+
+export interface BidEmail {
+  id: string;
+  bid_id: string;
+  to_email: string;
+  subject: string;
+  body: string;
+  status: EmailDeliveryStatus;
+  created_at: string;
 }
 
 export interface Page<T> {
