@@ -2,8 +2,12 @@
 /* Leaflet tile/control styles. Must sit with the other @imports (CSS ordering). */
 @import "leaflet/dist/leaflet.css";
 
-/* Light-mode dashboard palette, matching the Hemut reference UI. */
+/* Light-mode dashboard palette, matching the Hemut reference UI. This app is
+   light-only by design — pin color-scheme so Chrome/Safari's auto-dark-mode
+   doesn't invert the page background while leaving explicit bg-white cards
+   untouched (that mismatch is what caused the black-page/white-card bug). */
 :root {
+  color-scheme: light only;
   --background: #f7f8fa;
   --foreground: #18181b;
 }

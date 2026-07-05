@@ -44,6 +44,15 @@ export function LoadCard({
           </span>
           <span className="font-mono text-xs text-zinc-400">#{load.order_id}</span>
           <Badge className={status.className}>{status.label}</Badge>
+          <Badge
+            className={
+              load.direction === "outbound"
+                ? "bg-zinc-100 text-zinc-600 ring-zinc-200"
+                : "bg-violet-50 text-violet-700 ring-violet-200"
+            }
+          >
+            {load.direction === "outbound" ? "Outbound" : "Inbound"}
+          </Badge>
         </div>
 
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-zinc-700">

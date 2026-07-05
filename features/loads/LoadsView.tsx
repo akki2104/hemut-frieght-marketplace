@@ -8,35 +8,89 @@ import { swrFetcher } from "@/lib/api";
 import type { LoadDirection, LoadSummary, Page } from "@/lib/types";
 import { LoadCard } from "./LoadCard";
 
+export interface LoadFilters {
+  direction: LoadDirection | "all";
+  originCity: string;
+  originState: string;
+  destCity: string;
+  destState: string;
+  equipment: string;
+  maxWeight: string;
+}
+
+export const EMPTY_FILTERS: LoadFilters = {
+  direction: "all",
+  originCity: "",
+  originState: "",
+  destCity: "",
+  destState: "",
+  equipment: "",
+  maxWeight: "",
+};
+
 export function LoadsView({
-  direction,
   search = "",
+  filters = EMPTY_FILTERS,
+  excludeLoadIds,
   onOpen,
   onPlaceBid,
   selectable,
   selectedIds,
   onToggleSelect,
 }: {
-  direction: LoadDirection;
   search?: string;
+  filters?: LoadFilters;
+  /** Loads whose bid has already been decided (accepted/rejected) — tracked under My Bids instead. */
+  excludeLoadIds?: Set<string>;
   onOpen: (load: LoadSummary) => void;
-  // Only provided for outbound loads (inbound is read-only tracking).
+  // Only invoked for outbound loads — inbound rows never render a bid button.
   onPlaceBid?: (load: LoadSummary) => void;
   selectable?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (load: LoadSummary) => void;
 }) {
   const { data, error, isLoading } = useSWR<Page<LoadSummary>>(
-    `/loads?direction=${direction}&limit=100`,
+    "/loads?limit=100",
     swrFetcher
   );
 
   const filtered = useMemo(() => {
     if (!data) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return data.items;
-    return data.items.filter((l) =>
-      [
+    const maxW = filters.maxWeight ? parseFloat(filters.maxWeight) : null;
+
+    return data.items.filter((l) => {
+      if (excludeLoadIds?.has(l.id)) return false;
+      if (filters.direction !== "all" && l.direction !== filters.direction) return false;
+      if (
+        filters.originCity &&
+        !l.origin_city.toLowerCase().includes(filters.originCity.toLowerCase())
+      )
+        return false;
+      if (
+        filters.originState &&
+        l.origin_state.toLowerCase() !== filters.originState.toLowerCase()
+      )
+        return false;
+      if (
+        filters.destCity &&
+        !l.destination_city.toLowerCase().includes(filters.destCity.toLowerCase())
+      )
+        return false;
+      if (
+        filters.destState &&
+        l.destination_state.toLowerCase() !== filters.destState.toLowerCase()
+      )
+        return false;
+      if (
+        filters.equipment &&
+        !l.equipment_type.toLowerCase().includes(filters.equipment.toLowerCase())
+      )
+        return false;
+      if (maxW !== null && !Number.isNaN(maxW) && l.weight_lbs > maxW) return false;
+
+      if (!q) return true;
+      return [
         l.shipper_name,
         l.order_id,
         l.origin_city,
@@ -47,9 +101,9 @@ export function LoadsView({
       ]
         .join(" ")
         .toLowerCase()
-        .includes(q)
-    );
-  }, [data, search]);
+        .includes(q);
+    });
+  }, [data, search, filters, excludeLoadIds]);
 
   if (isLoading) return <Spinner label="Loading loads…" />;
   if (error)
@@ -57,32 +111,31 @@ export function LoadsView({
       <EmptyState title="Couldn't load loads" hint="Is the API running on port 8000?" />
     );
   if (!data || data.items.length === 0)
+    return <EmptyState title="No loads" hint="Create an order to get started." />;
+  if (filtered.length === 0)
     return (
       <EmptyState
-        title={`No ${direction} loads`}
-        hint={
-          direction === "outbound"
-            ? "Create an order to get started."
-            : "Inbound loads will appear here once assigned."
-        }
+        title="No loads match your filters"
+        hint="Try a broader search or reset the filters."
       />
     );
-  if (filtered.length === 0)
-    return <EmptyState title="No loads match your search" hint="Try a different term." />;
 
   return (
     <div className="space-y-2.5">
-      {filtered.map((load) => (
-        <LoadCard
-          key={load.id}
-          load={load}
-          onOpen={onOpen}
-          onPlaceBid={onPlaceBid}
-          selectable={selectable}
-          selected={selectedIds?.has(load.id)}
-          onToggleSelect={onToggleSelect}
-        />
-      ))}
+      {filtered.map((load) => {
+        const canBid = load.direction === "outbound";
+        return (
+          <LoadCard
+            key={load.id}
+            load={load}
+            onOpen={onOpen}
+            onPlaceBid={canBid ? onPlaceBid : undefined}
+            selectable={selectable && canBid}
+            selected={selectedIds?.has(load.id)}
+            onToggleSelect={onToggleSelect}
+          />
+        );
+      })}
     </div>
   );
 }

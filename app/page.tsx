@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 
 import { Button, Drawer } from "@/components/ui";
@@ -9,15 +9,21 @@ import { BulkBidModal } from "@/features/bids/BulkBidModal";
 import { PlaceBidModal } from "@/features/bids/PlaceBidModal";
 import { LoadDetailDrawer } from "@/features/loads/LoadDetailDrawer";
 import { LoadFormModal } from "@/features/loads/LoadFormModal";
-import { LoadsView } from "@/features/loads/LoadsView";
+import { LoadSearchPanel } from "@/features/loads/LoadSearchPanel";
+import { EMPTY_FILTERS, LoadsView, type LoadFilters } from "@/features/loads/LoadsView";
 import { swrFetcher } from "@/lib/api";
-import type { LoadDetail, LoadSummary, Page } from "@/lib/types";
+import type { Bid, LoadDetail, LoadSummary, Page } from "@/lib/types";
 
-type Tab = "inbound" | "outbound" | "bids";
+type Tab = "loads" | "bids";
+
+// Bids in these states have already been decided — those loads move to the
+// My Bids tab instead of cluttering the still-open Loads list.
+const DECIDED_BID_STATUSES = new Set(["accepted", "rejected"]);
 
 export default function Dashboard() {
-  const [tab, setTab] = useState<Tab>("outbound");
+  const [tab, setTab] = useState<Tab>("loads");
   const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<LoadFilters>(EMPTY_FILTERS);
 
   // Drawer + modal state.
   const [openLoadId, setOpenLoadId] = useState<string | null>(null);
@@ -28,10 +34,22 @@ export default function Dashboard() {
     null | { mode: "create" } | { mode: "edit"; load: LoadDetail }
   >(null);
 
-  // Tab count badges.
-  const { data: outboundPage } = useSWR<Page<LoadSummary>>("/loads?direction=outbound&limit=100", swrFetcher);
-  const { data: inboundPage } = useSWR<Page<LoadSummary>>("/loads?direction=inbound&limit=100", swrFetcher);
-  const { data: bidsPage } = useSWR<Page<unknown>>("/bids?limit=100", swrFetcher);
+  const { data: loadsPage } = useSWR<Page<LoadSummary>>("/loads?limit=100", swrFetcher);
+  const { data: bidsPage } = useSWR<Page<Bid>>("/bids?limit=100", swrFetcher);
+
+  // Loads whose bid is already decided — excluded from the Loads tab.
+  const decidedLoadIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const b of bidsPage?.items ?? []) {
+      if (DECIDED_BID_STATUSES.has(b.status)) ids.add(b.load_id);
+    }
+    return ids;
+  }, [bidsPage]);
+
+  const loadsTabCount = useMemo(
+    () => (loadsPage?.items ?? []).filter((l) => !decidedLoadIds.has(l.id)).length,
+    [loadsPage, decidedLoadIds]
+  );
 
   const toggleSelect = useCallback((load: LoadSummary) => {
     setSelected((prev) => {
@@ -59,42 +77,40 @@ export default function Dashboard() {
 
       {/* Tabs */}
       <div className="mb-4 flex gap-1 border-b border-zinc-200">
-        <TabButton active={tab === "inbound"} onClick={() => setTab("inbound")} label="Inbound Loads" count={inboundPage?.total} />
-        <TabButton active={tab === "outbound"} onClick={() => setTab("outbound")} label="Outbound Loads" count={outboundPage?.total} />
+        <TabButton active={tab === "loads"} onClick={() => setTab("loads")} label="Loads" count={loadsTabCount} />
         <TabButton active={tab === "bids"} onClick={() => setTab("bids")} label="My Bids" count={bidsPage?.total} />
       </div>
 
-      {/* Search (loads tabs only) */}
-      {tab !== "bids" && (
-        <div className="mb-4">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search loads by shipper, order ID, city…"
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-sm focus:border-zinc-500 focus:outline-none"
-          />
-        </div>
-      )}
-
       {/* Content */}
-      {tab === "outbound" && (
-        <LoadsView
-          direction="outbound"
-          search={search}
-          onOpen={(l) => setOpenLoadId(l.id)}
-          onPlaceBid={(l) => setBidTarget(l)}
-          selectable
-          selectedIds={new Set(selected.keys())}
-          onToggleSelect={toggleSelect}
-        />
-      )}
-      {tab === "inbound" && (
-        <LoadsView direction="inbound" search={search} onOpen={(l) => setOpenLoadId(l.id)} />
+      {tab === "loads" && (
+        <>
+          <LoadSearchPanel onApply={setFilters} />
+
+          <div className="mb-4">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search loads by shipper, order ID, city…"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-sm focus:border-zinc-500 focus:outline-none"
+            />
+          </div>
+
+          <LoadsView
+            search={search}
+            filters={filters}
+            excludeLoadIds={decidedLoadIds}
+            onOpen={(l) => setOpenLoadId(l.id)}
+            onPlaceBid={(l) => setBidTarget(l)}
+            selectable
+            selectedIds={new Set(selected.keys())}
+            onToggleSelect={toggleSelect}
+          />
+        </>
       )}
       {tab === "bids" && <BidsView />}
 
       {/* Bulk-select action bar */}
-      {tab === "outbound" && selected.size > 0 && (
+      {tab === "loads" && selected.size > 0 && (
         <div className="fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-4 rounded-full border border-zinc-200 bg-white px-5 py-3 shadow-xl">
           <span className="text-sm font-medium text-zinc-800">
             {selected.size} load{selected.size === 1 ? "" : "s"} selected
