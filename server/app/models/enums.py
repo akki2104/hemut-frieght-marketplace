@@ -48,3 +48,11 @@ class RateType(str, enum.Enum):
 class CallMode(str, enum.Enum):
     auto_agent = "auto_agent"
     manual = "manual"
+
+
+class EmailDeliveryStatus(str, enum.Enum):
+    """Per-message delivery outcome for the bid_emails conversation history."""
+
+    sent = "sent"          # actually delivered via Resend
+    recorded = "recorded"  # persisted but the send didn't fire (no key / provider error)
+    failed = "failed"

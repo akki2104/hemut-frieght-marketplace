@@ -82,4 +82,8 @@ async def handle_unexpected_error(_request: Request, exc: Exception) -> JSONResp
 
 @app.get("/health", tags=["meta"], summary="Liveness check")
 async def health() -> dict:
-    return {"status": "ok", "email_live": bool(settings.resend_api_key)}
+    return {
+        "status": "ok",
+        "email_live": bool(settings.resend_api_key),
+        "rate_suggestion_live": bool(settings.groq_api_key),
+    }

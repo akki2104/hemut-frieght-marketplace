@@ -9,7 +9,13 @@ from app.api.deps import BidServiceDep, LoadServiceDep, get_current_user
 from app.models.enums import LoadDirection, LoadStatus
 from app.schemas.bid import BidResponse, PlaceBidRequest
 from app.schemas.common import Page
-from app.schemas.load import LoadCreate, LoadDetail, LoadSummary, LoadUpdate
+from app.schemas.load import (
+    LoadCreate,
+    LoadDetail,
+    LoadSummary,
+    LoadUpdate,
+    RateSuggestionResponse,
+)
 from app.schemas.stop import StopArrivalUpdate
 
 # Auth applied once at the router level (CLAUDE.md §7.6) rather than per-route.
@@ -89,6 +95,18 @@ async def mark_stop_arrival(
         load_id, stop_id, payload.actual_arrival_time
     )
     return LoadDetail.model_validate(load)
+
+
+@router.get(
+    "/{load_id}/rate-suggestion",
+    response_model=RateSuggestionResponse,
+    summary="Get an AI-estimated historical rate suggestion for this load",
+)
+async def get_rate_suggestion(
+    load_id: uuid.UUID, service: LoadServiceDep
+) -> RateSuggestionResponse:
+    suggested_rate = await service.suggest_rate(load_id)
+    return RateSuggestionResponse(suggested_rate=suggested_rate)
 
 
 @router.post(

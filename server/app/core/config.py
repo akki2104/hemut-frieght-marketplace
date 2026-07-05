@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60 * 24  # 24h — generous since there's no refresh flow
 
+    # AI rate suggestion (Groq). When unset, the suggestion endpoint returns
+    # null rather than erroring — the bid form works with no key, and the
+    # suggestion appears the moment a key is added (see
+    # integrations/rate_suggestion_provider.py).
+    groq_api_key: str | None = None
+    groq_model: str = "llama-3.1-8b-instant"
+
 
 @lru_cache
 def get_settings() -> Settings:

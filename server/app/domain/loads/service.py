@@ -15,6 +15,7 @@ from app.domain.exceptions import (
     LoadNotFoundError,
     StopNotFoundError,
 )
+from app.integrations.rate_suggestion_provider import RateSuggestionProvider
 from app.models.enums import LoadDirection, LoadStatus
 from app.models.load import Load
 from app.models.stop import Stop
@@ -23,9 +24,15 @@ from app.schemas.load import LoadCreate, LoadUpdate
 
 
 class LoadService:
-    def __init__(self, session: AsyncSession, repo: LoadRepository) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        repo: LoadRepository,
+        rate_suggestion_provider: RateSuggestionProvider,
+    ) -> None:
         self._session = session
         self._repo = repo
+        self._rate_suggestion = rate_suggestion_provider
 
     async def list_loads(
         self,
@@ -101,6 +108,21 @@ class LoadService:
         self._advance_status_from_stops(await self.get_load(load_id))
         await self._session.commit()
         return await self.get_load(load_id)
+
+    async def suggest_rate(self, load_id: uuid.UUID) -> float | None:
+        """AI-estimated historical rate for this load's lane, or None if no
+        suggestion is available (no Groq key configured, or the call failed).
+        """
+        load = await self.get_load(load_id)
+        return await self._rate_suggestion.suggest(
+            origin_city=load.origin_city,
+            origin_state=load.origin_state,
+            destination_city=load.destination_city,
+            destination_state=load.destination_state,
+            distance_miles=load.distance_miles,
+            weight_lbs=load.weight_lbs,
+            equipment_type=load.equipment_type,
+        )
 
     @staticmethod
     def _advance_status_from_stops(load: Load) -> None:

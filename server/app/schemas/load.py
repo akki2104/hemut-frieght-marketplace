@@ -110,6 +110,14 @@ class LoadSummary(BaseModel):
     num_stops: int = Field(description="Derived from the load's stops.")
 
 
+class RateSuggestionResponse(BaseModel):
+    suggested_rate: float | None = Field(
+        description="AI-estimated historical rate for this lane in USD, or "
+        "null if no suggestion is available (no Groq key configured, or the "
+        "provider call failed)."
+    )
+
+
 class LoadDetail(LoadSummary):
     """Full detail — adds customer, driver, coordinates, stops."""
 

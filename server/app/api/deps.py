@@ -18,7 +18,9 @@ from app.domain.bids.service import BidService
 from app.domain.exceptions import NotAuthenticatedError
 from app.domain.loads.service import LoadService
 from app.integrations.email_provider import EmailProvider
+from app.integrations.rate_suggestion_provider import RateSuggestionProvider
 from app.models.user import User
+from app.repositories.bid_email_repository import BidEmailRepository
 from app.repositories.bid_repository import BidRepository
 from app.repositories.load_repository import LoadRepository
 from app.repositories.user_repository import UserRepository
@@ -74,24 +76,36 @@ def get_bid_repository(session: SessionDep) -> BidRepository:
     return BidRepository(session)
 
 
+def get_bid_email_repository(session: SessionDep) -> BidEmailRepository:
+    return BidEmailRepository(session)
+
+
 def get_email_provider(settings: SettingsDep) -> EmailProvider:
     return EmailProvider(settings)
+
+
+def get_rate_suggestion_provider(settings: SettingsDep) -> RateSuggestionProvider:
+    return RateSuggestionProvider(settings)
 
 
 def get_load_service(
     session: SessionDep,
     repo: Annotated[LoadRepository, Depends(get_load_repository)],
+    rate_suggestion_provider: Annotated[
+        RateSuggestionProvider, Depends(get_rate_suggestion_provider)
+    ],
 ) -> LoadService:
-    return LoadService(session, repo)
+    return LoadService(session, repo, rate_suggestion_provider)
 
 
 def get_bid_service(
     session: SessionDep,
     bid_repo: Annotated[BidRepository, Depends(get_bid_repository)],
     load_repo: Annotated[LoadRepository, Depends(get_load_repository)],
+    bid_email_repo: Annotated[BidEmailRepository, Depends(get_bid_email_repository)],
     email_provider: Annotated[EmailProvider, Depends(get_email_provider)],
 ) -> BidService:
-    return BidService(session, bid_repo, load_repo, email_provider)
+    return BidService(session, bid_repo, load_repo, bid_email_repo, email_provider)
 
 
 LoadServiceDep = Annotated[LoadService, Depends(get_load_service)]

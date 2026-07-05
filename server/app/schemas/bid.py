@@ -9,9 +9,17 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
-from app.models.enums import BidMethod, BidStatus, CallMode, LoadDirection, LoadStatus, RateType
+from app.models.enums import (
+    BidMethod,
+    BidStatus,
+    CallMode,
+    EmailDeliveryStatus,
+    LoadDirection,
+    LoadStatus,
+    RateType,
+)
 
 # The only transitions exposed to carriers via PATCH /bids/{id}/status — the
 # other BidStatus values (draft/sent/recorded/failed) are system-set, never
@@ -65,6 +73,7 @@ class BidLoadRef(BaseModel):
     destination_city: str
     destination_state: str
     shipper_name: str
+    broker_email: str
 
 
 class BidResponse(BaseModel):
@@ -82,3 +91,27 @@ class BidResponse(BaseModel):
     call_mode: CallMode | None
     created_at: datetime = Field(description="Timestamp the bid was placed.")
     load: BidLoadRef | None = None
+
+
+class SendBidEmailRequest(BaseModel):
+    """Send a follow-up email in the bid's conversation (frontend supplies the
+    content — e.g. a hardcoded acceptance/rejection template, or a free-form
+    manual message from the compose box)."""
+
+    to_email: EmailStr | None = Field(
+        default=None, description="Defaults to the load's broker_email if omitted."
+    )
+    subject: str = Field(min_length=1)
+    body: str = Field(min_length=1)
+
+
+class BidEmailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    bid_id: uuid.UUID
+    to_email: str
+    subject: str
+    body: str
+    status: EmailDeliveryStatus
+    created_at: datetime
