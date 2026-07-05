@@ -3,16 +3,19 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
-from app.api.deps import BidServiceDep, LoadServiceDep
+from app.api.deps import BidServiceDep, LoadServiceDep, get_current_user
 from app.models.enums import LoadDirection, LoadStatus
 from app.schemas.bid import BidResponse, PlaceBidRequest
 from app.schemas.common import Page
 from app.schemas.load import LoadCreate, LoadDetail, LoadSummary, LoadUpdate
 from app.schemas.stop import StopArrivalUpdate
 
-router = APIRouter(prefix="/loads", tags=["loads"])
+# Auth applied once at the router level (CLAUDE.md §7.6) rather than per-route.
+router = APIRouter(
+    prefix="/loads", tags=["loads"], dependencies=[Depends(get_current_user)]
+)
 
 MAX_LIMIT = 100
 

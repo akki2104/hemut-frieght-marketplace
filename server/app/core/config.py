@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     # CORS origin for the Next.js frontend.
     frontend_origin: str = "http://localhost:3000"
 
+    # Auth. Access-token-only (no refresh token) — a deliberate scope cut for
+    # this build; the default secret is fine for local dev only, override via
+    # env for anything beyond that.
+    jwt_secret_key: str = "dev-insecure-secret-change-me"
+    jwt_algorithm: str = "HS256"
+    jwt_expires_minutes: int = 60 * 24  # 24h — generous since there's no refresh flow
+
 
 @lru_cache
 def get_settings() -> Settings:

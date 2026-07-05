@@ -2,14 +2,16 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.api.deps import BidServiceDep
+from app.api.deps import BidServiceDep, get_current_user
 from app.models.enums import BidMethod, BidStatus
 from app.schemas.bid import BidResponse
 from app.schemas.common import Page
 
-router = APIRouter(prefix="/bids", tags=["bids"])
+router = APIRouter(
+    prefix="/bids", tags=["bids"], dependencies=[Depends(get_current_user)]
+)
 
 MAX_LIMIT = 100
 

@@ -12,7 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.v1 import bids, loads
+from app.api.v1 import auth, bids, loads
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.domain.exceptions import DomainError
@@ -35,6 +35,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(loads.router, prefix="/api/v1")
 app.include_router(bids.router, prefix="/api/v1")
 

@@ -43,3 +43,18 @@ class LoadHasBidsError(DomainError):
 class InboundBidNotAllowedError(DomainError):
     code = "INBOUND_BID_NOT_ALLOWED"
     http_status = 409
+
+
+class EmailAlreadyRegisteredError(DomainError):
+    code = "EMAIL_ALREADY_REGISTERED"
+    http_status = 409
+
+
+class InvalidCredentialsError(DomainError):
+    code = "INVALID_CREDENTIALS"
+    http_status = 401
+
+
+class NotAuthenticatedError(DomainError):
+    code = "NOT_AUTHENTICATED"
+    http_status = 401
