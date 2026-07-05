@@ -71,6 +71,8 @@ export interface LoadDetail extends LoadSummary {
 export interface BidLoadRef {
   id: string;
   order_id: string;
+  direction: LoadDirection;
+  status: LoadStatus;
   origin_city: string;
   origin_state: string;
   destination_city: string;

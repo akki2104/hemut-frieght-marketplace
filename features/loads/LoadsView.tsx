@@ -40,7 +40,7 @@ export function LoadsView({
 }: {
   search?: string;
   filters?: LoadFilters;
-  /** Loads whose bid has already been decided (accepted/rejected) — tracked under My Bids instead. */
+  /** Loads with any bid placed, or already delivered — tracked under My Bids instead. */
   excludeLoadIds?: Set<string>;
   onOpen: (load: LoadSummary) => void;
   // Only invoked for outbound loads — inbound rows never render a bid button.

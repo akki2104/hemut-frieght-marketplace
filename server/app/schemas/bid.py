@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.enums import BidMethod, BidStatus, CallMode, RateType
+from app.models.enums import BidMethod, BidStatus, CallMode, LoadDirection, LoadStatus, RateType
 
 
 class PlaceBidRequest(BaseModel):
@@ -48,6 +48,8 @@ class BidLoadRef(BaseModel):
 
     id: uuid.UUID
     order_id: str
+    direction: LoadDirection
+    status: LoadStatus
     origin_city: str
     origin_state: str
     destination_city: str

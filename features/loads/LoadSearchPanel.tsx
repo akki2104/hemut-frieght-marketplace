@@ -1,24 +1,20 @@
 "use client";
 
-import { useState } from "react";
-
-import { Button } from "@/components/ui";
 import { EMPTY_FILTERS, type LoadFilters } from "./LoadsView";
 
+// Fully controlled — every change is applied immediately (no separate "Find
+// Loads" step). A previous draft/apply-on-submit design meant clicking the
+// Direction toggle alone did nothing until a submit button was also clicked,
+// which read as "filtering is broken."
 export function LoadSearchPanel({
-  onApply,
+  filters,
+  onChange,
 }: {
-  onApply: (filters: LoadFilters) => void;
+  filters: LoadFilters;
+  onChange: (filters: LoadFilters) => void;
 }) {
-  const [draft, setDraft] = useState<LoadFilters>(EMPTY_FILTERS);
-
   function set<K extends keyof LoadFilters>(key: K, value: LoadFilters[K]) {
-    setDraft((d) => ({ ...d, [key]: value }));
-  }
-
-  function reset() {
-    setDraft(EMPTY_FILTERS);
-    onApply(EMPTY_FILTERS);
+    onChange({ ...filters, [key]: value });
   }
 
   return (
@@ -26,10 +22,10 @@ export function LoadSearchPanel({
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-base font-semibold text-zinc-900">Search Parameters</h3>
-          <p className="text-xs text-zinc-500">Filter loads by route, equipment, and weight</p>
+          <p className="text-xs text-zinc-500">Filters apply immediately as you change them</p>
         </div>
         <button
-          onClick={reset}
+          onClick={() => onChange(EMPTY_FILTERS)}
           className="text-sm text-zinc-500 underline hover:text-zinc-800"
         >
           Reset Search
@@ -40,13 +36,13 @@ export function LoadSearchPanel({
         <FieldGroup label="Origin">
           <div className="flex gap-2">
             <input
-              value={draft.originCity}
+              value={filters.originCity}
               onChange={(e) => set("originCity", e.target.value)}
               placeholder="City"
               className="w-full rounded-lg border border-zinc-300 px-2.5 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
             />
             <input
-              value={draft.originState}
+              value={filters.originState}
               onChange={(e) => set("originState", e.target.value)}
               placeholder="ST"
               maxLength={2}
@@ -58,13 +54,13 @@ export function LoadSearchPanel({
         <FieldGroup label="Destination">
           <div className="flex gap-2">
             <input
-              value={draft.destCity}
+              value={filters.destCity}
               onChange={(e) => set("destCity", e.target.value)}
               placeholder="City"
               className="w-full rounded-lg border border-zinc-300 px-2.5 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
             />
             <input
-              value={draft.destState}
+              value={filters.destState}
               onChange={(e) => set("destState", e.target.value)}
               placeholder="ST"
               maxLength={2}
@@ -75,7 +71,7 @@ export function LoadSearchPanel({
 
         <FieldGroup label="Equipment">
           <select
-            value={draft.equipment}
+            value={filters.equipment}
             onChange={(e) => set("equipment", e.target.value)}
             className="w-full rounded-lg border border-zinc-300 px-2.5 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
           >
@@ -89,7 +85,7 @@ export function LoadSearchPanel({
         <FieldGroup label="Max Weight (lbs)">
           <input
             type="number"
-            value={draft.maxWeight}
+            value={filters.maxWeight}
             onChange={(e) => set("maxWeight", e.target.value)}
             placeholder="Any"
             className="w-full rounded-lg border border-zinc-300 px-2.5 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
@@ -97,7 +93,7 @@ export function LoadSearchPanel({
         </FieldGroup>
       </div>
 
-      <div className="mt-4 flex items-center justify-between">
+      <div className="mt-4">
         <FieldGroup label="Direction">
           <div className="inline-flex rounded-lg bg-zinc-100 p-1">
             {(["all", "outbound", "inbound"] as const).map((d) => (
@@ -105,7 +101,7 @@ export function LoadSearchPanel({
                 key={d}
                 onClick={() => set("direction", d)}
                 className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-                  draft.direction === d
+                  filters.direction === d
                     ? "bg-white text-zinc-900 shadow-sm"
                     : "text-zinc-500 hover:text-zinc-800"
                 }`}
@@ -115,9 +111,6 @@ export function LoadSearchPanel({
             ))}
           </div>
         </FieldGroup>
-        <Button variant="primary" onClick={() => onApply(draft)}>
-          Find Loads
-        </Button>
       </div>
     </div>
   );

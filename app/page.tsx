@@ -18,10 +18,6 @@ import type { Bid, LoadDetail, LoadSummary, Page } from "@/lib/types";
 
 type Tab = "loads" | "bids";
 
-// Bids in these states have already been decided — those loads move to the
-// My Bids tab instead of cluttering the still-open Loads list.
-const DECIDED_BID_STATUSES = new Set(["accepted", "rejected"]);
-
 // Wraps the dashboard so its data hooks (useSWR below) don't fire a single
 // request until the auth check has confirmed a token exists.
 export default function Page() {
@@ -50,18 +46,21 @@ function Dashboard() {
   const { data: bidsPage } = useSWR<Page<Bid>>("/bids?limit=100", swrFetcher);
   const { data: me } = useSWR("/auth/me", () => api.me());
 
-  // Loads whose bid is already decided — excluded from the Loads tab.
-  const decidedLoadIds = useMemo(() => {
+  // A load leaves the Loads tab the moment ANY bid has been placed on it
+  // (regardless of that bid's outcome) — it lives under My Bids from then on.
+  // Delivered loads (tracking complete) are excluded too, even if never bid.
+  const excludedLoadIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const b of bidsPage?.items ?? []) {
-      if (DECIDED_BID_STATUSES.has(b.status)) ids.add(b.load_id);
+    for (const b of bidsPage?.items ?? []) ids.add(b.load_id);
+    for (const l of loadsPage?.items ?? []) {
+      if (l.status === "delivered") ids.add(l.id);
     }
     return ids;
-  }, [bidsPage]);
+  }, [bidsPage, loadsPage]);
 
   const loadsTabCount = useMemo(
-    () => (loadsPage?.items ?? []).filter((l) => !decidedLoadIds.has(l.id)).length,
-    [loadsPage, decidedLoadIds]
+    () => (loadsPage?.items ?? []).filter((l) => !excludedLoadIds.has(l.id)).length,
+    [loadsPage, excludedLoadIds]
   );
 
   const toggleSelect = useCallback((load: LoadSummary) => {
@@ -109,7 +108,7 @@ function Dashboard() {
       {/* Content */}
       {tab === "loads" && (
         <>
-          <LoadSearchPanel onApply={setFilters} />
+          <LoadSearchPanel filters={filters} onChange={setFilters} />
 
           <div className="mb-4">
             <input
@@ -123,7 +122,7 @@ function Dashboard() {
           <LoadsView
             search={search}
             filters={filters}
-            excludeLoadIds={decidedLoadIds}
+            excludeLoadIds={excludedLoadIds}
             onOpen={(l) => setOpenLoadId(l.id)}
             onPlaceBid={(l) => setBidTarget(l)}
             selectable

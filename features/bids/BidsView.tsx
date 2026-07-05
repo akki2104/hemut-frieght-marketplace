@@ -14,9 +14,11 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 // Buckets over the finer-grained BidStatus enum, matching the reference's
-// In Progress / Accepted / Rejected grouping.
-type Bucket = "in_progress" | "accepted" | "rejected";
-const BUCKET_STATUSES: Record<Bucket, BidStatus[]> = {
+// In Progress / Accepted / Rejected grouping, plus a Completed bucket for
+// bids whose load has finished delivery (that takes priority over the bid's
+// own status — a delivered load is "done" regardless of how the bid closed).
+type Bucket = "in_progress" | "accepted" | "rejected" | "completed";
+const BUCKET_STATUSES: Record<Exclude<Bucket, "completed">, BidStatus[]> = {
   in_progress: ["draft", "sent", "recorded"],
   accepted: ["accepted"],
   rejected: ["rejected", "failed"],
@@ -25,7 +27,16 @@ const BUCKET_LABEL: Record<Bucket, string> = {
   in_progress: "In Progress",
   accepted: "Accepted",
   rejected: "Rejected",
+  completed: "Completed",
 };
+
+function bucketOf(bid: Bid): Bucket {
+  if (bid.load?.status === "delivered") return "completed";
+  for (const key of Object.keys(BUCKET_STATUSES) as Exclude<Bucket, "completed">[]) {
+    if (BUCKET_STATUSES[key].includes(bid.status)) return key;
+  }
+  return "in_progress";
+}
 
 export function BidsView() {
   const { data, error, isLoading } = useSWR<Page<Bid>>(
@@ -35,17 +46,18 @@ export function BidsView() {
   const [bucket, setBucket] = useState<Bucket>("in_progress");
 
   const counts = useMemo(() => {
-    const c: Record<Bucket, number> = { in_progress: 0, accepted: 0, rejected: 0 };
-    for (const b of data?.items ?? []) {
-      for (const key of Object.keys(BUCKET_STATUSES) as Bucket[]) {
-        if (BUCKET_STATUSES[key].includes(b.status)) c[key]++;
-      }
-    }
+    const c: Record<Bucket, number> = {
+      in_progress: 0,
+      accepted: 0,
+      rejected: 0,
+      completed: 0,
+    };
+    for (const b of data?.items ?? []) c[bucketOf(b)]++;
     return c;
   }, [data]);
 
   const filtered = useMemo(
-    () => (data?.items ?? []).filter((b) => BUCKET_STATUSES[bucket].includes(b.status)),
+    () => (data?.items ?? []).filter((b) => bucketOf(b) === bucket),
     [data, bucket]
   );
 
@@ -63,7 +75,7 @@ export function BidsView() {
   return (
     <div>
       <div className="mb-3 inline-flex rounded-lg bg-zinc-100 p-1">
-        {(Object.keys(BUCKET_STATUSES) as Bucket[]).map((b) => (
+        {(["in_progress", "accepted", "rejected", "completed"] as Bucket[]).map((b) => (
           <button
             key={b}
             onClick={() => setBucket(b)}
