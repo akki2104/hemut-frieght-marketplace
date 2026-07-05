@@ -1,6 +1,7 @@
 // Typed fetch client for the FastAPI backend. All requests go through here so
 // error handling and the base URL live in one place.
 
+import { clearToken, getToken } from "./auth";
 import type {
   ApiErrorBody,
   Bid,
@@ -29,9 +30,14 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
 
   if (res.status === 204) return undefined as T;
@@ -44,6 +50,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       details: {},
       correlation_id: null,
     };
+    // A dead/invalid token should send the user back to login rather than
+    // surface a confusing error on every request.
+    if (res.status === 401) clearToken();
     throw new ApiError(res.status, body);
   }
   return data as T;
@@ -96,6 +105,20 @@ export const api = {
 
   listBids: (params: { method?: string; status?: string; limit?: number; offset?: number }) =>
     request<Page<Bid>>(`/bids${qs(params)}`),
+
+  signup: (email: string, password: string) =>
+    request<{ access_token: string }>("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+
+  login: (email: string, password: string) =>
+    request<{ access_token: string }>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+
+  me: () => request<{ id: string; email: string }>("/auth/me"),
 };
 
 // SWR fetcher keyed by a tuple [path, params].

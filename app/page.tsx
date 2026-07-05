@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 
 import { Button, Drawer } from "@/components/ui";
+import { AuthGate } from "@/features/auth/AuthGate";
 import { BidsView } from "@/features/bids/BidsView";
 import { BulkBidModal } from "@/features/bids/BulkBidModal";
 import { PlaceBidModal } from "@/features/bids/PlaceBidModal";
@@ -11,7 +12,8 @@ import { LoadDetailDrawer } from "@/features/loads/LoadDetailDrawer";
 import { LoadFormModal } from "@/features/loads/LoadFormModal";
 import { LoadSearchPanel } from "@/features/loads/LoadSearchPanel";
 import { EMPTY_FILTERS, LoadsView, type LoadFilters } from "@/features/loads/LoadsView";
-import { swrFetcher } from "@/lib/api";
+import { api, swrFetcher } from "@/lib/api";
+import { clearToken } from "@/lib/auth";
 import type { Bid, LoadDetail, LoadSummary, Page } from "@/lib/types";
 
 type Tab = "loads" | "bids";
@@ -20,7 +22,17 @@ type Tab = "loads" | "bids";
 // My Bids tab instead of cluttering the still-open Loads list.
 const DECIDED_BID_STATUSES = new Set(["accepted", "rejected"]);
 
-export default function Dashboard() {
+// Wraps the dashboard so its data hooks (useSWR below) don't fire a single
+// request until the auth check has confirmed a token exists.
+export default function Page() {
+  return (
+    <AuthGate>
+      <Dashboard />
+    </AuthGate>
+  );
+}
+
+function Dashboard() {
   const [tab, setTab] = useState<Tab>("loads");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<LoadFilters>(EMPTY_FILTERS);
@@ -36,6 +48,7 @@ export default function Dashboard() {
 
   const { data: loadsPage } = useSWR<Page<LoadSummary>>("/loads?limit=100", swrFetcher);
   const { data: bidsPage } = useSWR<Page<Bid>>("/bids?limit=100", swrFetcher);
+  const { data: me } = useSWR("/auth/me", () => api.me());
 
   // Loads whose bid is already decided — excluded from the Loads tab.
   const decidedLoadIds = useMemo(() => {
@@ -70,9 +83,21 @@ export default function Dashboard() {
           <p className="text-xs text-zinc-400">Load Sourcing / Freight Marketplace</p>
           <h1 className="text-2xl font-bold text-zinc-900">Freight Marketplace</h1>
         </div>
-        <Button variant="primary" onClick={() => setFormMode({ mode: "create" })}>
-          + Create Order
-        </Button>
+        <div className="flex items-center gap-3">
+          {me && <span className="text-sm text-zinc-500">{me.email}</span>}
+          <Button variant="primary" onClick={() => setFormMode({ mode: "create" })}>
+            + Create Order
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              clearToken();
+              window.location.assign("/login");
+            }}
+          >
+            Log out
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
