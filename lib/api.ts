@@ -5,6 +5,7 @@ import { clearToken, getToken } from "./auth";
 import type {
   ApiErrorBody,
   Bid,
+  BidDecision,
   LoadCreateInput,
   LoadDetail,
   LoadSummary,
@@ -105,6 +106,12 @@ export const api = {
 
   listBids: (params: { method?: string; status?: string; limit?: number; offset?: number }) =>
     request<Page<Bid>>(`/bids${qs(params)}`),
+
+  updateBidStatus: (bidId: string, status: BidDecision) =>
+    request<Bid>(`/bids/${bidId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
 
   signup: (email: string, password: string) =>
     request<{ access_token: string }>("/auth/signup", {

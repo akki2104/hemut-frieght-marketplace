@@ -16,7 +16,9 @@ export type BidStatus =
   | "recorded"
   | "accepted"
   | "rejected"
-  | "failed";
+  | "failed"
+  | "cancelled";
+export type BidDecision = "accepted" | "rejected" | "cancelled";
 export type RateType = "all_in" | "per_mile";
 export type CallMode = "auto_agent" | "manual";
 
@@ -87,6 +89,7 @@ export interface Bid {
   target_amount: string;
   status: BidStatus;
   rate_type: RateType | null;
+  broker_email: string | null;
   subject: string | null;
   body: string | null;
   call_mode: CallMode | null;

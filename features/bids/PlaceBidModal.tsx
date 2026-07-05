@@ -6,7 +6,7 @@ import { useSWRConfig } from "swr";
 import { Button, Modal } from "@/components/ui";
 import { api } from "@/lib/api";
 import { miles, money } from "@/lib/format";
-import type { BidMethod, CallMode, LoadDetail, LoadSummary, RateType } from "@/lib/types";
+import type { BidMethod, LoadDetail, LoadSummary, RateType } from "@/lib/types";
 
 // Accepts either a summary or a full detail — only lane/broker fields are needed.
 type BidTarget = LoadSummary & Partial<LoadDetail>;
@@ -24,7 +24,6 @@ export function PlaceBidModal({
   const [method, setMethod] = useState<BidMethod>("email");
   const [amount, setAmount] = useState("");
   const [rateType, setRateType] = useState<RateType>("all_in");
-  const [callMode, setCallMode] = useState<CallMode>("auto_agent");
   const [brokerEmail, setBrokerEmail] = useState(load.broker_email);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -46,29 +45,23 @@ export function PlaceBidModal({
   }, [validAmount, amountNum, rateType, load.distance_miles]);
 
   const emailReady = validAmount && brokerEmail && subject && body;
-  const callReady = validAmount;
-  const canSubmit = method === "email" ? emailReady : callReady;
+  // Call bidding (the negotiation agent) isn't built yet — the tab stays
+  // visible for discoverability but never becomes submittable.
+  const canSubmit = method === "email" && emailReady;
 
   async function submit() {
+    if (method !== "email") return;
     setSubmitting(true);
     setError(null);
     try {
-      if (method === "email") {
-        await api.placeBid(load.id, {
-          method: "email",
-          target_amount: amountNum,
-          rate_type: rateType,
-          broker_email: brokerEmail,
-          subject,
-          body,
-        });
-      } else {
-        await api.placeBid(load.id, {
-          method: "call",
-          target_amount: amountNum,
-          call_mode: callMode,
-        });
-      }
+      await api.placeBid(load.id, {
+        method: "email",
+        target_amount: amountNum,
+        rate_type: rateType,
+        broker_email: brokerEmail,
+        subject,
+        body,
+      });
       // Refresh loads + bids lists.
       await mutate(
         (key) =>
@@ -187,27 +180,14 @@ export function PlaceBidModal({
         )}
 
         {method === "call" && (
-          <div className="mt-4 space-y-4">
-            <Toggle
-              options={[
-                { value: "auto_agent", label: "Auto agent" },
-                { value: "manual", label: "Manual call" },
-              ]}
-              value={callMode}
-              onChange={(v) => setCallMode(v as CallMode)}
-            />
-            <TextField
-              label="Phone number"
-              value={load.broker_phone}
-              onChange={() => {}}
-              readOnly
-            />
-            <div className="rounded-xl bg-zinc-50 p-3 text-xs text-zinc-500">
-              📞 Submitting records this call bid and (when the negotiation agent is
-              enabled) would place an outbound call to {load.broker_phone}. The live
-              voice agent is not wired in this build — the bid is saved as{" "}
-              <span className="font-medium">recorded</span>.
-            </div>
+          <div className="mt-4 flex flex-col items-center gap-2 rounded-xl bg-zinc-50 px-4 py-8 text-center">
+            <span className="text-2xl">📞</span>
+            <p className="text-sm font-medium text-zinc-700">
+              AI voice negotiation is coming soon
+            </p>
+            <p className="max-w-xs text-xs text-zinc-500">
+              {`Calling ${load.broker_phone} with an AI negotiation agent isn't available yet — check back soon, or place this bid by email in the meantime.`}
+            </p>
           </div>
         )}
 
@@ -223,11 +203,7 @@ export function PlaceBidModal({
           Cancel
         </Button>
         <Button variant="primary" onClick={submit} disabled={!canSubmit || submitting}>
-          {submitting
-            ? "Submitting…"
-            : method === "email"
-              ? "Send Email Bid"
-              : "Start Negotiation"}
+          {method === "call" ? "Coming Soon" : submitting ? "Submitting…" : "Send Email Bid"}
         </Button>
       </div>
     </Modal>

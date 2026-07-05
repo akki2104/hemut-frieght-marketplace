@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 
-import { Badge, EmptyState, Spinner } from "@/components/ui";
-import { swrFetcher } from "@/lib/api";
+import { Badge, Button, EmptyState, Spinner } from "@/components/ui";
+import { api, swrFetcher } from "@/lib/api";
 import { bidStatusMeta, dateTime, money } from "@/lib/format";
-import type { Bid, BidStatus, Page } from "@/lib/types";
+import type { Bid, BidDecision, BidStatus, Page } from "@/lib/types";
+import { BidActionsMenu } from "./BidActionsMenu";
+import { ViewEmailModal } from "./ViewEmailModal";
 
 const METHOD_LABEL: Record<string, string> = {
   email: "Email",
@@ -43,7 +45,16 @@ export function BidsView() {
     "/bids?limit=100",
     swrFetcher
   );
+  const { mutate } = useSWRConfig();
   const [bucket, setBucket] = useState<Bucket>("in_progress");
+  const [emailBid, setEmailBid] = useState<Bid | null>(null);
+
+  async function handleDecision(bidId: string, decision: BidDecision) {
+    await api.updateBidStatus(bidId, decision);
+    await mutate(
+      (key) => typeof key === "string" && key.startsWith("/bids")
+    );
+  }
 
   const counts = useMemo(() => {
     const c: Record<Bucket, number> = {
@@ -105,11 +116,13 @@ export function BidsView() {
                 <th className="px-4 py-2.5 font-medium">Target</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5 font-medium">Placed</th>
+                <th className="px-4 py-2.5 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {filtered.map((bid) => {
                 const status = bidStatusMeta(bid.status);
+                const isCompleted = bucketOf(bid) === "completed";
                 return (
                   <tr key={bid.id} className="hover:bg-zinc-50">
                     <td className="px-4 py-3">
@@ -149,12 +162,33 @@ export function BidsView() {
                     <td className="px-4 py-3 text-zinc-500">
                       {dateTime(bid.created_at)}
                     </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        {bid.method === "email" && (
+                          <Button
+                            variant="secondary"
+                            className="px-2.5 py-1 text-xs"
+                            onClick={() => setEmailBid(bid)}
+                          >
+                            Email
+                          </Button>
+                        )}
+                        <BidActionsMenu
+                          disabled={isCompleted}
+                          onSelect={(decision) => handleDecision(bid.id, decision)}
+                        />
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+      )}
+
+      {emailBid && (
+        <ViewEmailModal bid={emailBid} onClose={() => setEmailBid(null)} />
       )}
     </div>
   );

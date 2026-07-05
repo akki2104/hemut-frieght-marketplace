@@ -64,6 +64,7 @@ const BID_STATUS_META: Record<BidStatus, { label: string; className: string }> =
   accepted: { label: "Accepted", className: "bg-green-50 text-green-700 ring-green-200" },
   rejected: { label: "Rejected", className: "bg-red-50 text-red-700 ring-red-200" },
   failed: { label: "Failed", className: "bg-red-50 text-red-700 ring-red-200" },
+  cancelled: { label: "Cancelled", className: "bg-zinc-100 text-zinc-500 ring-zinc-200" },
 };
 
 export function bidStatusMeta(s: BidStatus) {

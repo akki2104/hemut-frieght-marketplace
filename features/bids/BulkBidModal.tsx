@@ -42,13 +42,19 @@ export function BulkBidModal({
     setRows((r) => ({ ...r, [id]: { ...r[id], ...patch } }));
   }
 
+  // Call bidding (the negotiation agent) isn't built yet — those rows are
+  // excluded from submission even if an amount was entered for them.
   const validRows = loads.filter((l) => {
     const r = rows[l.id];
     const n = parseFloat(r.amount);
-    return !Number.isNaN(n) && n > 0;
+    return !Number.isNaN(n) && n > 0 && r.method === "email";
   });
-  const emailCount = validRows.filter((l) => rows[l.id].method === "email").length;
-  const callCount = validRows.filter((l) => rows[l.id].method === "call").length;
+  const emailCount = validRows.length;
+  const callPendingCount = loads.filter((l) => {
+    const r = rows[l.id];
+    const n = parseFloat(r.amount);
+    return !Number.isNaN(n) && n > 0 && r.method === "call";
+  }).length;
 
   async function submitAll() {
     setSubmitting(true);
@@ -56,22 +62,14 @@ export function BulkBidModal({
       const r = rows[load.id];
       const amount = parseFloat(r.amount);
       try {
-        if (r.method === "email") {
-          await api.placeBid(load.id, {
-            method: "email",
-            target_amount: amount,
-            rate_type: r.rateType,
-            broker_email: r.brokerEmail,
-            subject: `Bid on ${load.origin_city}, ${load.origin_state} → ${load.destination_city}, ${load.destination_state} (${load.order_id})`,
-            body: `Hi, we can cover load ${load.order_id} (${load.origin_city}, ${load.origin_state} → ${load.destination_city}, ${load.destination_state}) at ${money(amount)} ${r.rateType === "all_in" ? "all-in" : "per mile"}. Please confirm.`,
-          });
-        } else {
-          await api.placeBid(load.id, {
-            method: "call",
-            target_amount: amount,
-            call_mode: "auto_agent",
-          });
-        }
+        await api.placeBid(load.id, {
+          method: "email",
+          target_amount: amount,
+          rate_type: r.rateType,
+          broker_email: r.brokerEmail,
+          subject: `Bid on ${load.origin_city}, ${load.origin_state} → ${load.destination_city}, ${load.destination_state} (${load.order_id})`,
+          body: `Hi, we can cover load ${load.order_id} (${load.origin_city}, ${load.origin_state} → ${load.destination_city}, ${load.destination_state}) at ${money(amount)} ${r.rateType === "all_in" ? "all-in" : "per mile"}. Please confirm.`,
+        });
         update(load.id, { result: "ok" });
       } catch (e) {
         update(load.id, {
@@ -175,7 +173,7 @@ export function BulkBidModal({
                 </div>
               </div>
 
-              {r.method === "email" && (
+              {r.method === "email" ? (
                 <div className="mt-2">
                   <label className="text-xs text-zinc-500">Broker email</label>
                   <input
@@ -184,6 +182,10 @@ export function BulkBidModal({
                     className="mt-0.5 w-full rounded-lg border border-zinc-300 px-2.5 py-1.5 text-sm focus:border-zinc-500 focus:outline-none"
                   />
                 </div>
+              ) : (
+                <p className="mt-2 text-xs text-zinc-400">
+                  📞 AI voice negotiation is coming soon — this row won&apos;t be sent.
+                </p>
               )}
             </div>
           );
@@ -206,7 +208,12 @@ export function BulkBidModal({
           >
             {submitting
               ? "Sending…"
-              : `Send ${emailCount} email${emailCount === 1 ? "" : "s"}, ${callCount} call${callCount === 1 ? "" : "s"}`}
+              : `Send ${emailCount} email${emailCount === 1 ? "" : "s"}`}
+            {!submitting && callPendingCount > 0 && (
+              <span className="ml-1 font-normal text-zinc-300">
+                ({callPendingCount} call{callPendingCount === 1 ? "" : "s"} skipped)
+              </span>
+            )}
           </Button>
         )}
       </div>
