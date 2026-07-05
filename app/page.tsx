@@ -1,65 +1,229 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
+
+import { Button, Drawer } from "@/components/ui";
+import { AuthGate } from "@/features/auth/AuthGate";
+import { BidsView } from "@/features/bids/BidsView";
+import { BulkBidModal } from "@/features/bids/BulkBidModal";
+import { PlaceBidModal } from "@/features/bids/PlaceBidModal";
+import { LoadDetailDrawer } from "@/features/loads/LoadDetailDrawer";
+import { LoadFormModal } from "@/features/loads/LoadFormModal";
+import { LoadSearchPanel } from "@/features/loads/LoadSearchPanel";
+import { EMPTY_FILTERS, LoadsView, type LoadFilters } from "@/features/loads/LoadsView";
+import { api, swrFetcher } from "@/lib/api";
+import { clearToken } from "@/lib/auth";
+import type { Bid, LoadDetail, LoadSummary, Page } from "@/lib/types";
+
+type Tab = "loads" | "bids";
+
+// Wraps the dashboard so its data hooks (useSWR below) don't fire a single
+// request until the auth check has confirmed a token exists.
+export default function Page() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <AuthGate>
+      <Dashboard />
+    </AuthGate>
+  );
+}
+
+function Dashboard() {
+  const [tab, setTab] = useState<Tab>("loads");
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<LoadFilters>(EMPTY_FILTERS);
+
+  // Drawer + modal state.
+  const [openLoadId, setOpenLoadId] = useState<string | null>(null);
+  const [bidTarget, setBidTarget] = useState<LoadSummary | LoadDetail | null>(null);
+  const [selected, setSelected] = useState<Map<string, LoadSummary>>(new Map());
+  const [showBulk, setShowBulk] = useState(false);
+  const [formMode, setFormMode] = useState<
+    null | { mode: "create" } | { mode: "edit"; load: LoadDetail }
+  >(null);
+
+  const { data: loadsPage } = useSWR<Page<LoadSummary>>("/loads?limit=100", swrFetcher);
+  const { data: bidsPage } = useSWR<Page<Bid>>("/bids?limit=100", swrFetcher);
+  const { data: me } = useSWR("/auth/me", () => api.me());
+
+  // A load leaves the Loads tab the moment ANY bid has been placed on it
+  // (regardless of that bid's outcome) — it lives under My Bids from then on.
+  // Delivered loads (tracking complete) are excluded too, even if never bid.
+  const excludedLoadIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const b of bidsPage?.items ?? []) ids.add(b.load_id);
+    for (const l of loadsPage?.items ?? []) {
+      if (l.status === "delivered") ids.add(l.id);
+    }
+    return ids;
+  }, [bidsPage, loadsPage]);
+
+  const loadsTabCount = useMemo(
+    () => (loadsPage?.items ?? []).filter((l) => !excludedLoadIds.has(l.id)).length,
+    [loadsPage, excludedLoadIds]
+  );
+
+  const toggleSelect = useCallback((load: LoadSummary) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(load.id)) next.delete(load.id);
+      else next.set(load.id, load);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = () => setSelected(new Map());
+
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+      {/* Header */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs text-zinc-400">Load Sourcing / Freight Marketplace</p>
+          <h1 className="text-2xl font-bold text-zinc-900">Freight Marketplace</h1>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex items-center gap-3">
+          {me && <span className="text-sm text-zinc-500">{me.email}</span>}
+          <Button variant="primary" onClick={() => setFormMode({ mode: "create" })}>
+            + Create Order
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              clearToken();
+              window.location.assign("/login");
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            Log out
+          </Button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-4 flex gap-1 border-b border-zinc-200">
+        <TabButton active={tab === "loads"} onClick={() => setTab("loads")} label="Loads" count={loadsTabCount} />
+        <TabButton active={tab === "bids"} onClick={() => setTab("bids")} label="My Bids" count={bidsPage?.total} />
+      </div>
+
+      {/* Content */}
+      {tab === "loads" && (
+        <>
+          <LoadSearchPanel filters={filters} onChange={setFilters} />
+
+          <div className="mb-4">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search loads by shipper, order ID, city…"
+              className="w-full rounded-lg border border-zinc-300 bg-white px-3.5 py-2 text-sm focus:border-zinc-500 focus:outline-none"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
+
+          <LoadsView
+            search={search}
+            filters={filters}
+            excludeLoadIds={excludedLoadIds}
+            onOpen={(l) => setOpenLoadId(l.id)}
+            onPlaceBid={(l) => setBidTarget(l)}
+            selectable
+            selectedIds={new Set(selected.keys())}
+            onToggleSelect={toggleSelect}
+          />
+        </>
+      )}
+      {tab === "bids" && <BidsView />}
+
+      {/* Bulk-select action bar */}
+      {tab === "loads" && selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-4 rounded-full border border-zinc-200 bg-white px-5 py-3 shadow-xl">
+          <span className="text-sm font-medium text-zinc-800">
+            {selected.size} load{selected.size === 1 ? "" : "s"} selected
+          </span>
+          <button onClick={clearSelection} className="text-sm text-zinc-500 hover:text-zinc-800">
+            Clear
+          </button>
+          <Button variant="primary" onClick={() => setShowBulk(true)}>
+            + Generate Bids
+          </Button>
         </div>
-      </main>
+      )}
+
+      {/* Load detail drawer */}
+      <Drawer open={openLoadId !== null} onClose={() => setOpenLoadId(null)}>
+        {openLoadId && (
+          <LoadDetailDrawer
+            loadId={openLoadId}
+            onClose={() => setOpenLoadId(null)}
+            onPlaceBid={(l) => setBidTarget(l)}
+            onEdit={(l) => {
+              setOpenLoadId(null);
+              setFormMode({ mode: "edit", load: l });
+            }}
+            onDeleted={() => setOpenLoadId(null)}
+          />
+        )}
+      </Drawer>
+
+      {/* Single place-bid modal */}
+      {bidTarget && (
+        <PlaceBidModal
+          load={bidTarget}
+          onClose={() => setBidTarget(null)}
+          onPlaced={() => setBidTarget(null)}
+        />
+      )}
+
+      {/* Bulk-bid modal */}
+      {showBulk && (
+        <BulkBidModal
+          loads={Array.from(selected.values())}
+          onClose={() => setShowBulk(false)}
+          onDone={() => {
+            setShowBulk(false);
+            clearSelection();
+          }}
+        />
+      )}
+
+      {/* Create / Edit form */}
+      {formMode && (
+        <LoadFormModal
+          mode={formMode.mode}
+          load={formMode.mode === "edit" ? formMode.load : undefined}
+          onClose={() => setFormMode(null)}
+          onSaved={() => setFormMode(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count?: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+        active
+          ? "border-zinc-900 text-zinc-900"
+          : "border-transparent text-zinc-500 hover:text-zinc-800"
+      }`}
+    >
+      {label}
+      {count !== undefined && (
+        <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600">
+          {count}
+        </span>
+      )}
+    </button>
   );
 }

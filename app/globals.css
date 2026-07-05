@@ -1,8 +1,15 @@
 @import "tailwindcss";
+/* Leaflet tile/control styles. Must sit with the other @imports (CSS ordering). */
+@import "leaflet/dist/leaflet.css";
 
+/* Light-mode dashboard palette, matching the Hemut reference UI. This app is
+   light-only by design — pin color-scheme so Chrome/Safari's auto-dark-mode
+   doesn't invert the page background while leaving explicit bg-white cards
+   untouched (that mismatch is what caused the black-page/white-card bug). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light only;
+  --background: #f7f8fa;
+  --foreground: #18181b;
 }
 
 @theme inline {
@@ -10,17 +17,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Brand accent — the amber "Place Bid" / primary action color. */
+  --color-brand: #f5c518;
+  --color-brand-strong: #e0ac00;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
